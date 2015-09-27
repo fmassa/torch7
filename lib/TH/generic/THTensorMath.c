@@ -1799,13 +1799,37 @@ TENSOR_IMPLEMENT_LOGICAL(ge,>=)
 TENSOR_IMPLEMENT_LOGICAL(eq,==)
 TENSOR_IMPLEMENT_LOGICAL(ne,!=)
 
+
+inline void THTensor_(IBF)(real (*CFUNC)(real), THTensor *r_, THTensor *t)
+{
+  THTensor_(resizeAs)(r_, t);
+  if (THTensor_(isContiguous)(r_) && THTensor_(isContiguous)(t) && THTensor_(nElement)(r_) == THTensor_(nElement)(t)) {
+    real *tp = THTensor_(data)(t);
+    real *rp = THTensor_(data)(r_);
+    long sz = THTensor_(nElement)(t);
+    long i;
+#pragma omp parallel for if(sz > TH_OMP_OVERHEAD_THRESHOLD) private(i)
+    for (i=0; i<sz; i++)
+      rp[i] = (*CFUNC)(tp[i]);
+  } else {
+    TH_TENSOR_APPLY2(real, t, real, r_, *r__data = (*CFUNC)(*t_data););
+  }
+}
+  
+#define LAB_IMPLEMENT_BASIC_FUNCTION(NAME, CFUNC)             \
+  void THTensor_(NAME)(THTensor *r_, THTensor *t)                \
+  {                                                           \
+    THTensor_(IBF)(CFUNC,r_, t);               \
+  }                                                           \
+
+/*
 #define LAB_IMPLEMENT_BASIC_FUNCTION(NAME, CFUNC)             \
   void THTensor_(NAME)(THTensor *r_, THTensor *t)                \
   {                                                           \
     THTensor_(resizeAs)(r_, t);                               \
     TH_TENSOR_APPLY2(real, t, real, r_, *r__data = CFUNC(*t_data);); \
   }                                                           \
-
+*/
 #define LAB_IMPLEMENT_BASIC_FUNCTION_VALUE(NAME, CFUNC)                 \
   void THTensor_(NAME)(THTensor *r_, THTensor *t, real value)              \
   {                                                                     \
